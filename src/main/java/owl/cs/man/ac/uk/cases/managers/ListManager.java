@@ -20,6 +20,7 @@ import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyCreationException;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
 
+import main.java.owl.cs.man.ac.uk.cases.lists.Case;
 import main.java.owl.cs.man.ac.uk.cases.lists.CaseList;
 
 public class ListManager {
@@ -31,6 +32,29 @@ public class ListManager {
 		this.df = ontoman.getOWLDataFactory();
 	}
 	
+	public List<Case> constructCaseListFromDisFile(File disagreementfile) throws IOException, OWLOntologyCreationException{
+		OWLOntology disont = ontoman.loadOntologyFromOntologyDocument(disagreementfile);
+		String ontology = "";
+		for(OWLAnnotation ant:disont.getAnnotations()){
+			if(ant.getSignature().contains(df.getOWLAnnotationProperty(IRI.create("http://owl.cs.manchester.ac.uk/reasoner_verification/vocabulary#ontology")))){
+				ontology = ontology + ant.getValue().toString().substring(1, ant.getValue().toString().lastIndexOf("^^") - 1);
+			}
+		}
+		List<Case> caselist = new ArrayList<Case>();
+		for(OWLAxiom ax:disont.getAxioms())
+		{
+			if(!ax.isAnnotationAxiom() && !ax.isOfType(AxiomType.DECLARATION))
+			{
+				Case c = new Case(ontology, ax.getAxiomWithoutAnnotations());
+				caselist.add(c);
+			}
+		}
+		return caselist;
+	}
+	
+	
+	//Defunct with Case class
+	/**
 	public CaseList constructCaseListFromDisFile(File disagreementfile) throws IOException, OWLOntologyCreationException{
 			OWLOntology disont = ontoman.loadOntologyFromOntologyDocument(disagreementfile);
 			String ontology = "";
@@ -56,4 +80,5 @@ public class ListManager {
 			}
 			return new CaseList(list);
 	}
+	**/
 }

@@ -8,7 +8,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributes;
-
+import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,11 +20,16 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.semanticweb.owlapi.model.OWLAxiom;
 import org.semanticweb.owlapi.model.OWLOntologyCreationException;
+import org.semanticweb.owlapi.model.OWLOntologyStorageException;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.xml.sax.SAXException;
 
+import main.java.owl.cs.man.ac.uk.cases.lists.Case;
 import main.java.owl.cs.man.ac.uk.cases.lists.CaseList;
 import main.java.owl.cs.man.ac.uk.cases.managers.ListManager;
 
@@ -40,7 +45,7 @@ public class XMLCaseWriter {
 		transformer = transformerFactory.newTransformer();
 	}
 	
-	public void createXMLCaseFileFromDis(File dis, String xmlfile, String experiment) throws IOException, TransformerException, OWLOntologyCreationException{
+	public void createXMLCaseFileFromDis(File dis, File xmlfile, String experiment) throws IOException, TransformerException, OWLOntologyCreationException, ParserConfigurationException, OWLOntologyStorageException, SAXException{
 		//check dis non-empty
 		if(dis.length() == 0) {
 			throw new RuntimeException("Empty file error");
@@ -52,25 +57,27 @@ public class XMLCaseWriter {
 		
 		//Constructing cases dependent on list
 		ListManager lm = new ListManager();
-		CaseList cl = lm.constructCaseListFromDisFile(dis);
+		List<Case> cl = lm.constructCaseListFromDisFile(dis);
 		
 		//constructing info for relevant attributes. Because this is grouped by ontology, we can get it once!
 		BasicFileAttributes attr = Files.readAttributes(dis.toPath(), BasicFileAttributes.class);
 		String date = attr.lastModifiedTime().toString().substring(0, attr.lastModifiedTime().toString().indexOf("T"));
-		String ontology	= cl.getCaseAtIndex(0)[0];
+		String ontology	= cl.get(0).getOntology().toString();
 		
 		//Root attributes
 		Attr xsd = doc.createAttribute("xmlns:xsi");
 		Attr xsi = doc.createAttribute("xsi:noNamespaceSchemaLocation");
+		Attr owl = doc.createAttribute("xmlns:owl");
 		Attr grouping = doc.createAttribute("grouping");
 		rootElement.setAttributeNode(xsi);
 		rootElement.setAttributeNode(xsd);
 		rootElement.setAttributeNode(grouping);
 		xsd.setValue("http://www.w3.org/2001/XMLSchema-instance");
 		xsi.setValue("case.xsd");
+		owl.setValue("http://www.w3.org/2002/07/owl#");
 		grouping.setValue("ontology");
-		
-		for(int i = 0;i < cl.length();i++){
+		OWLXMLWriter oxwriter = new OWLXMLWriter();
+		for(int i = 0;i < cl.size();i++){
 			Element xmlcase = doc.createElement("case");
 			rootElement.appendChild(xmlcase);
 			Attr generationDate = doc.createAttribute("generation-date");
@@ -82,12 +89,19 @@ public class XMLCaseWriter {
 			Attr ontologyAttr = doc.createAttribute("ontology");
 			xmlcase.setAttributeNode(ontologyAttr);
 			ontologyAttr.setValue(ontology);
+			Element entailment = doc.createElement("entailment");
+			xmlcase.appendChild(entailment);
+			Element n = (Element) oxwriter.getEntailmentAsDocElement((OWLAxiom) cl.get(i).getEntailment(), xmlfile.getParent());
+			doc.adoptNode(n);
+			entailment.appendChild(n);
+			//n.setAttributeNode(owl);
+			//n.setPrefix("owl");
 		}
 		
 		
 		//writing content to xml file
 		DOMSource source = new DOMSource(doc);
-		StreamResult result = new StreamResult(new File(xmlfile));
+		StreamResult result = new StreamResult(xmlfile);
 		
 		// Output to console for testing
 		transformer.transform(source, result);
