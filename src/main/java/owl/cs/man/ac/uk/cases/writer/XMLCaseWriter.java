@@ -40,6 +40,7 @@ public class XMLCaseWriter {
 	private Transformer transformer;
 	public XMLCaseWriter() throws ParserConfigurationException, TransformerConfigurationException {
 		docFactory = DocumentBuilderFactory.newInstance();
+		docFactory.setNamespaceAware(true);
 		docBuilder = docFactory.newDocumentBuilder();
 		TransformerFactory transformerFactory = TransformerFactory.newInstance();
 		transformer = transformerFactory.newTransformer();
@@ -67,14 +68,16 @@ public class XMLCaseWriter {
 		//Root attributes
 		Attr xsd = doc.createAttribute("xmlns:xsi");
 		Attr xsi = doc.createAttribute("xsi:noNamespaceSchemaLocation");
-		Attr owl = doc.createAttribute("xmlns:owl");
+		//Attr owl = doc.createAttribute("xmlns:owl");
 		Attr grouping = doc.createAttribute("grouping");
-		rootElement.setAttributeNode(xsi);
+		//rootElement.setAttributeNode(xsi);
+		rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
 		rootElement.setAttributeNode(xsd);
+		//rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:owl", "http://www.w3.org/2002/07/owl#");
 		rootElement.setAttributeNode(grouping);
 		xsd.setValue("http://www.w3.org/2001/XMLSchema-instance");
 		xsi.setValue("case.xsd");
-		owl.setValue("http://www.w3.org/2002/07/owl#");
+		
 		grouping.setValue("ontology");
 		OWLXMLWriter oxwriter = new OWLXMLWriter();
 		for(int i = 0;i < cl.size();i++){
@@ -92,10 +95,20 @@ public class XMLCaseWriter {
 			Element entailment = doc.createElement("entailment");
 			xmlcase.appendChild(entailment);
 			Element n = (Element) oxwriter.getEntailmentAsDocElement((OWLAxiom) cl.get(i).getEntailment(), xmlfile.getParent());
-			doc.adoptNode(n);
-			entailment.appendChild(n);
-			//n.setAttributeNode(owl);
+			//Element elementWithNS = doc.createElementNS("http://www.w3.org/2002/07/owl#", n.getNodeName());
+			//elementWithNS.setPrefix("owl");
+			Element elementWithNS = oxwriter.addOWLNameSpace(n, doc);
+			doc.adoptNode(elementWithNS);
+			entailment.appendChild(elementWithNS);
+			
+			//Attr owl = doc.createAttribute("xmlns:owl");
+			//owl.setValue("http://www.w3.org/2002/07/owl#");
+			//n.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:owl", "http://www.w3.org/2002/07/owl#");
 			//n.setPrefix("owl");
+			
+			//n.setAttributeNode(owl);
+			
+			
 		}
 		
 		
