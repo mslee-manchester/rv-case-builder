@@ -14,5 +14,5 @@ public class Case<String,OWLAxiom>{
 	public String getOntology(){ return ontology; }
     public OWLAxiom getEntailment(){ return entailment; }
     public void setOntology(String ont){ this.ontology = ont; }
-    public void setEntailment(OWLAxiom ax){ this.entailment = entailment; }
+    public void setEntailment(OWLAxiom ax){ this.entailment = ax; }
 }

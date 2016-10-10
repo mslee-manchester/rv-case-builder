@@ -1,11 +1,13 @@
 package main.java.owl.cs.man.ac.uk.cases.managers;
 
 import java.io.BufferedReader;
-
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +54,24 @@ public class ListManager {
 		return caselist;
 	}
 	
+	public void generateCSVOfCaseList(List<Case> list, File csv) throws IOException{
+		PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(csv)));
+		pw.println("ontology,entailment");
+		for(Case c:list)
+		{
+			pw.println(c.getOntology().toString() + "," + c.getEntailment());
+		}
+		pw.close();
+	}
+	
+	public ArrayList<String> getCaseListMetaData(List<Case> list, File csv){
+		
+		return null;
+	}
+	
+	public Boolean lineContainsCase(String s, Case c){
+		return s.contains(c.getOntology().toString()) && s.contains(c.getEntailment().toString());
+	}
 	
 	//Defunct with Case class
 	/**
