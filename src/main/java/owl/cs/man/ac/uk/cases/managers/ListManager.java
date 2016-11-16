@@ -10,7 +10,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.AxiomType;
@@ -21,9 +25,16 @@ import org.semanticweb.owlapi.model.OWLDataFactory;
 import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyCreationException;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
+import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
 
 import main.java.owl.cs.man.ac.uk.cases.lists.Case;
+import main.java.owl.cs.man.ac.uk.cases.lists.CaseData;
 import main.java.owl.cs.man.ac.uk.cases.lists.CaseList;
+import main.java.owl.cs.man.ac.uk.cases.lists.Evidence;
+import main.java.owl.cs.man.ac.uk.cases.lists.MetaData;
+import main.java.owl.cs.man.ac.uk.cases.lists.ReasonerVerdict;
+import main.java.owl.cs.man.ac.uk.cases.lists.Subcase;
+import main.java.owl.cs.man.ac.uk.cases.lists.SubcaseData;
 
 public class ListManager {
 
@@ -54,6 +65,52 @@ public class ListManager {
 		return caselist;
 	}
 	
+	public List<Case> constructCaseListFromCSV(File csv) throws IOException{
+		List<Case> caseList = new ArrayList<Case>();
+		ArrayList<String> csvData = new ArrayList<String>();
+		BufferedReader reader = new BufferedReader(new FileReader(csv));
+		//Read top of document but don't input
+		reader.readLine();
+		while (true) {
+		    String line = reader.readLine();
+		    if (line == null) {
+			break;
+		    }
+		    csvData.add(line);
+		}
+		reader.close();
+		OWLOntologyManager ontologyManager = OWLManager.createOWLOntologyManager();
+		OWLDataFactory df = ontologyManager.getOWLDataFactory();
+		Set<Case> caseSet = new HashSet<Case>();
+		for(String data:csvData)
+		{
+			int pos1 = this.ordinalIndexOf(data,",",5) + 1;
+			int pos2 = this.ordinalIndexOf(data, ",", 6);
+			String ontology = data.substring(pos1, pos2);
+			int pos3 = this.ordinalIndexOf(data,",",14) + 1;
+			int pos4 = this.ordinalIndexOf(data,",",15);
+			String subclass = data.substring(pos3,pos4);
+			int pos5 = this.ordinalIndexOf(data,",",10) + 1;
+			int pos6 = this.ordinalIndexOf(data,",",11);
+			String supclass = data.substring(pos5,pos6);
+			OWLAxiom ax = df.getOWLSubClassOfAxiom(
+					df.getOWLClass(IRI.create(subclass)), 
+					df.getOWLClass(IRI.create(supclass))
+					);
+			Case c = new Case(ontology,ax);
+			caseSet.add(c);
+		}
+		caseList.addAll(caseSet);
+		return caseList;
+	}
+	
+	private static int ordinalIndexOf(String str, String substr, int n) {
+	    int pos = str.indexOf(substr);
+	    while (--n > 0 && pos != -1)
+	        pos = str.indexOf(substr, pos + 1);
+	    return pos;
+	}
+	
 	public void generateCSVOfCaseList(List<Case> list, File csv) throws IOException{
 		PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(csv)));
 		pw.println("ontology,entailment");
@@ -64,13 +121,298 @@ public class ListManager {
 		pw.close();
 	}
 	
-	public ArrayList<String> getCaseListMetaData(List<Case> list, File csv){
-		
-		return null;
+	public List<Subcase> extractSubcasesFromCaseData(ArrayList<CaseData> list){
+		List<Subcase> subcases = new ArrayList<Subcase>();
+		for(CaseData cd:list)
+		{
+			subcases.addAll(cd.getSubcases());
+		}
+		return subcases;
 	}
 	
-	public Boolean lineContainsCase(String s, Case c){
-		return s.contains(c.getOntology().toString()) && s.contains(c.getEntailment().toString());
+	public ArrayList<CaseData> constructCaseDataFromCSV(List<Case> list, File csv) throws IOException{
+		ArrayList<CaseData> casedata = new ArrayList<CaseData>();
+		Map<Case,ArrayList<String>> md = this.getCaseListMetaData(list, csv);
+		//TODO change to keyset loop CSV object in experiment API
+		//CSVUtils.read..
+		for(Case c:list)
+		{
+			ArrayList<String> cmd = md.get(c);
+			Set<String> sc = new HashSet<>();
+			Set<ReasonerVerdict> reasonerVerdicts = new HashSet<>();
+			Set<String> evidence = new HashSet<>();
+			for(String s:cmd)
+			{
+				int pos1 = this.ordinalIndexOf(s, ",", 11);
+				int pos2 = this.ordinalIndexOf(s, ",", 12);
+				sc.add(s.substring(pos1+ 1,pos2));
+				int pos3 = this.ordinalIndexOf(s, ",", 16);
+				int pos4 = this.ordinalIndexOf(s, ",", 17);
+				String reasoner = s.substring(pos3 + 1, pos4);
+				int pos5 = this.ordinalIndexOf(s,",", 13);
+				int pos6 = this.ordinalIndexOf(s,",", 14);
+				Boolean ver;
+				String inCH = s.substring(pos5 +1 ,pos6);
+				if(inCH.equals("1"))
+				{
+					ver = true;
+				}
+				else if(inCH.equals("0"))
+				{
+					ver = false;
+				}
+				else
+				{
+					ver = null;
+				}
+				reasonerVerdicts.add(new ReasonerVerdict(ver,reasoner));
+				int pos7 = this.ordinalIndexOf(s,",", 9);
+				int pos8 = this.ordinalIndexOf(s,",", 10);
+				if(s.substring(pos7 +1 ,pos8).equals("odd"))
+				{
+					evidence.add("Verdict: odd");
+				}
+				int pos9 = this.ordinalIndexOf(s,",",19);
+				//int pos10 = this.ordinalIndexOf(s, ",", 20);
+				if(s.substring(pos9 + 1).equals("1"))
+				{
+					evidence.add("Axiom Swallowing");
+				}
+			}
+			Set<Subcase> subcaseSet = new HashSet<Subcase>();
+			for(String s:sc)
+			{
+				Subcase subc = new Subcase(c.getOntology().toString(),(OWLAxiom) c.getEntailment(),s);
+				subcaseSet.add(subc);
+			}
+			casedata.add(new CaseData(c,subcaseSet,new MetaData(new HashSet<String>()),new Evidence(evidence),reasonerVerdicts));
+			
+			
+			
+			/**		
+			Map<Subcase,Set<ReasonerVerdict>> subVerdicts = new HashMap<Subcase,Set<ReasonerVerdict>>();
+			for(String s:cmd)
+			{
+				Set<ReasonerVerdict> reasonerVerdicts = new HashSet<ReasonerVerdict>();
+				System.out.println("Working on line: " + s);
+				for(Subcase s2:subcaseSet)
+				{
+					if(s.contains(s2.getJustification()))
+					{
+						System.out.println("s contains just");
+						int pos1 = this.ordinalIndexOf(s, ",", 8);
+						int pos2 = this.ordinalIndexOf(s, ",", 9);
+						Boolean ver;
+						String entailByJ = s.substring(pos1 + 1, pos2); 
+						if(entailByJ.equals("1"))
+						{
+							ver = true;
+						}
+						else
+						{
+							ver = false;
+						}
+						int pos3 = this.ordinalIndexOf(s, ",", 16);
+						int pos4 = this.ordinalIndexOf(s, ",", 17);
+						String reasoner = s.substring(pos3 + 1, pos4);
+						//System.out.println("Reasoner: " + reasoner);
+						//System.out.println("Verdict " + ver);
+						ReasonerVerdict rv = new ReasonerVerdict(ver,reasoner);
+						reasonerVerdicts.add(rv);
+					}
+				}
+				subVerdicts.put(s2, reasonerVerdicts);
+			}
+			**/			
+		}
+		return casedata;
+	}
+	
+	public ArrayList<SubcaseData> constructSubCaseDataFromCSV(List<Subcase> list, File csv) throws IOException{
+		ArrayList<SubcaseData> subcaseData = new ArrayList<SubcaseData>();
+		Map<Subcase,ArrayList<String>> md = this.getSubcaseListMetaData(list, csv);
+		for(Subcase sc:list)
+		{
+			Set<ReasonerVerdict> verdicts = new HashSet<ReasonerVerdict>();
+			Set<String> metadata = new HashSet<String>();
+			Set<String> evidence = new HashSet<String>();
+			for(String line:md.get(sc))
+			{
+				int pos1 = this.ordinalIndexOf(line, ",", 16);
+				int pos2 = this.ordinalIndexOf(line, ",", 17);
+				String reasoner = line.substring(pos1 + 1,pos2);
+				int pos3 = this.ordinalIndexOf(line, ",", 8);
+				int pos4 = this.ordinalIndexOf(line, ",", 9);
+				Boolean ver;
+				String entByJ = line.substring(pos3 +1, pos4);
+				if(entByJ.equals("1"))
+				{
+					ver = true;
+				}
+				else if(entByJ.equals("0"))
+				{
+					ver = false;
+				}
+				else
+				{
+					ver = null;
+				}
+				verdicts.add(new ReasonerVerdict(ver,reasoner));
+				int pos5 = this.ordinalIndexOf(line, ",", 7);
+				int pos6 = this.ordinalIndexOf(line, ",", 8);
+				String datatypes = line.substring(pos5 + 1,pos6);
+				if(!datatypes.equals(""))
+				{
+					for(String s:datatypes.split(" "))
+					{
+					metadata.add(s);
+					}
+				}
+				
+				int pos7 = this.ordinalIndexOf(line,",", 9);
+				int pos8 = this.ordinalIndexOf(line,",", 10);
+				if(line.substring(pos7 +1 ,pos8).equals("odd"))
+				{
+					evidence.add("Verdict: odd");
+				}
+				int pos9 = this.ordinalIndexOf(line,",",19);
+				if(line.substring(pos9 + 1).equals("1"))
+				{
+					evidence.add("Axiom Swallowing");
+				}
+				
+			}
+			String firstLine = md.get(sc).get(0);
+			int pos10 = this.ordinalIndexOf(firstLine, ",", 4);
+			int pos11 = this.ordinalIndexOf(firstLine, ",", 5);
+			String reasonerGen = firstLine.substring(pos10 + 1, pos11);
+			subcaseData.add(new SubcaseData(sc,reasonerGen,new MetaData(metadata),new Evidence(evidence),verdicts));
+		}
+		return subcaseData;
+	}
+	
+	public Map<Subcase,ArrayList<String>> getSubcaseListMetaData(List<Subcase> list, File csv) throws IOException{
+		ArrayList<String> csvData = new ArrayList<String>();		
+		BufferedReader reader = new BufferedReader(new FileReader(csv));
+		while (true) {
+		    String line = reader.readLine();
+		    if (line == null) {
+			break;
+		    }
+		    csvData.add(line);
+		}
+		reader.close();
+		Map<Subcase,ArrayList<String>> subcaseMetaData = new HashMap<Subcase,ArrayList<String>>();
+		for(Subcase sc:list)
+		{
+			ArrayList<String> data = new ArrayList<String>();
+			for(String smd:csvData)
+			{
+				if(smd.contains(sc.getJustification()))
+				{
+					data.add(smd);
+				}
+			}
+			subcaseMetaData.put(sc, data);
+		}
+		return subcaseMetaData;
+	}
+	
+	public Map<Case,ArrayList<String>> getCaseListMetaData(List<Case> list, File csv) throws IOException{
+		ArrayList<String> csvData = new ArrayList<String>();		
+		BufferedReader reader = new BufferedReader(new FileReader(csv));
+		while (true) {
+		    String line = reader.readLine();
+		    if (line == null) {
+			break;
+		    }
+		    csvData.add(line);
+		}
+		reader.close();
+		Map<Case,ArrayList<String>> caseMetaData = new HashMap<Case,ArrayList<String>>();
+		for(Case c:list)
+		{
+			ArrayList<String> metaData = new ArrayList<String>();
+			for(String s:csvData)
+			{
+				if(this.lineContainsCase(s, c) || this.lineContainsSubClasses(s, c))
+				{
+					
+					metaData.add(this.getDataFromLine(s, c));
+				}
+			}
+			caseMetaData.put(c, metaData);
+		}
+		return caseMetaData;
+	}
+			
+	private String getDataFromLine(String line, Case c){
+		String data = line.replace(c.getOntology().toString(), "");
+		data.replaceFirst(c.getEntailment().toString(), "");
+		OWLAxiom entailment = (OWLAxiom) c.getEntailment();
+		String datastring = "";
+		if(entailment.isOfType(AxiomType.SUBCLASS_OF))
+		{
+			OWLSubClassOfAxiom axiom = (OWLSubClassOfAxiom) entailment;
+			String subclass = axiom.getSubClass().toString();
+			String supclass = axiom.getSuperClass().toString();
+			String ax = "";
+			if(axiom.getSubClass().isTopEntity())
+			{
+				if(!axiom.getSuperClass().isBottomEntity())
+				{
+					ax = ax + subclass + "_" + supclass.substring(supclass.lastIndexOf("/") + 1, supclass.length() - 1);
+				}
+				else
+				{
+					ax = ax + subclass+ "_" + supclass;
+				}
+			}
+			else if(axiom.getSuperClass().isBottomEntity())
+			{
+				ax = ax + subclass.substring(subclass.lastIndexOf("/") + 1, subclass.length() - 1) 
+						+ "_" + supclass;
+			}
+			else
+			{
+			ax = ax + subclass.substring(subclass.lastIndexOf("/") + 1, subclass.length() - 1) 
+					+ "_"  + supclass.substring(supclass.lastIndexOf("/") + 1, supclass.length() - 1);
+			}
+			datastring = datastring + data.replaceFirst(ax, "");
+		}
+		else
+		{
+			datastring = datastring + data;
+		}
+		return datastring;
+	}
+	
+	private Boolean lineContainsCase(String s, Case c){
+		return s.contains(c.getOntology().toString()) && 
+				(s.contains(c.getEntailment().toString()) || this.lineContainsSubClasses(s, c));
+	}
+	
+	//To use with old files that contain only subclass axioms of form C1_C2.
+	private Boolean lineContainsSubClasses(String s, Case c){
+		OWLAxiom entailment = (OWLAxiom) c.getEntailment();
+		if(entailment.isOfType(AxiomType.SUBCLASS_OF))
+		{
+			OWLSubClassOfAxiom axiom = (OWLSubClassOfAxiom) entailment;
+			String subclass = axiom.getSubClass().toString();
+			String supclass = axiom.getSuperClass().toString();
+			if(s.contains(subclass.substring(1,subclass.length() - 1)) && s.contains(supclass.substring(1,supclass.length() - 1)))
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return false;
+		}
 	}
 	
 	//Defunct with Case class

@@ -2,15 +2,28 @@ package main.java.owl.cs.man.ac.uk.cases.lists;
 
 import java.util.Set;
 
-public class CaseData {
+public class SubcaseData {
+	private Subcase sc;
+	private String reasoner;
+	private MetaData metadata;
+	private Evidence evidence;
+	private Set<ReasonerVerdict> verdicts;
+	public SubcaseData(Subcase sc, String reasoner,  MetaData metadata, Evidence evidence, Set<ReasonerVerdict> verdicts) {
+		this.sc = sc;
+		this.reasoner = reasoner;
+		this.metadata = metadata;
+		this.evidence = evidence;
+		this.verdicts = verdicts;
+	}
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((c == null) ? 0 : c.hashCode());
 		result = prime * result + ((evidence == null) ? 0 : evidence.hashCode());
 		result = prime * result + ((metadata == null) ? 0 : metadata.hashCode());
-		result = prime * result + ((subcaseSet == null) ? 0 : subcaseSet.hashCode());
+		result = prime * result + ((reasoner == null) ? 0 : reasoner.hashCode());
+		result = prime * result + ((sc == null) ? 0 : sc.hashCode());
 		result = prime * result + ((verdicts == null) ? 0 : verdicts.hashCode());
 		return result;
 	}
@@ -23,12 +36,7 @@ public class CaseData {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		CaseData other = (CaseData) obj;
-		if (c == null) {
-			if (other.c != null)
-				return false;
-		} else if (!c.equals(other.c))
-			return false;
+		SubcaseData other = (SubcaseData) obj;
 		if (evidence == null) {
 			if (other.evidence != null)
 				return false;
@@ -39,10 +47,15 @@ public class CaseData {
 				return false;
 		} else if (!metadata.equals(other.metadata))
 			return false;
-		if (subcaseSet == null) {
-			if (other.subcaseSet != null)
+		if (reasoner == null) {
+			if (other.reasoner != null)
 				return false;
-		} else if (!subcaseSet.equals(other.subcaseSet))
+		} else if (!reasoner.equals(other.reasoner))
+			return false;
+		if (sc == null) {
+			if (other.sc != null)
+				return false;
+		} else if (!sc.equals(other.sc))
 			return false;
 		if (verdicts == null) {
 			if (other.verdicts != null)
@@ -52,23 +65,6 @@ public class CaseData {
 		return true;
 	}
 
-	private Case c;
-	private Set<Subcase> subcaseSet;
-	private MetaData metadata;
-	private Evidence evidence;
-	private Set<ReasonerVerdict> verdicts;
-	public CaseData(Case c, Set<Subcase> subcaseSet, MetaData metadata, Evidence evidence, Set<ReasonerVerdict> verdicts) {
-		this.c = c;
-		this.subcaseSet = subcaseSet;
-		this.metadata = metadata;
-		this.evidence = evidence;
-		this.verdicts = verdicts;
-	}
-	
-	public Set<Subcase> getSubcases(){
-		return this.subcaseSet;
-	}
-	
 	public MetaData getMetaData(){
 		return this.metadata;
 	}
@@ -77,11 +73,15 @@ public class CaseData {
 		return this.evidence;
 	}
 	
-	public Case getCase(){
-		return this.c;
+	public Subcase getCase(){
+		return this.sc;
 	}
 	
 	public Set<ReasonerVerdict> getReasonerVerdicts(){
 		return this.verdicts;
+	}
+	
+	public String getGeneratingReasoner(){
+		return this.reasoner;
 	}
 }
