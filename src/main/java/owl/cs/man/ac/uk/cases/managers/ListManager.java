@@ -28,13 +28,12 @@ import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
 
 import main.java.owl.cs.man.ac.uk.cases.lists.Case;
-import main.java.owl.cs.man.ac.uk.cases.lists.CaseData;
 import main.java.owl.cs.man.ac.uk.cases.lists.CaseList;
 import main.java.owl.cs.man.ac.uk.cases.lists.Evidence;
 import main.java.owl.cs.man.ac.uk.cases.lists.MetaData;
 import main.java.owl.cs.man.ac.uk.cases.lists.ReasonerVerdict;
 import main.java.owl.cs.man.ac.uk.cases.lists.Subcase;
-import main.java.owl.cs.man.ac.uk.cases.lists.SubcaseData;
+import owl.cs.man.ac.uk.experiment.csv.CSVUtilities;
 
 public class ListManager {
 
@@ -44,7 +43,7 @@ public class ListManager {
 		this.ontoman = OWLManager.createOWLOntologyManager();
 		this.df = ontoman.getOWLDataFactory();
 	}
-	
+	//TODO edit this for dis files
 	public List<Case> constructCaseListFromDisFile(File disagreementfile) throws IOException, OWLOntologyCreationException{
 		OWLOntology disont = ontoman.loadOntologyFromOntologyDocument(disagreementfile);
 		String ontology = "";
@@ -58,8 +57,8 @@ public class ListManager {
 		{
 			if(!ax.isAnnotationAxiom() && !ax.isOfType(AxiomType.DECLARATION))
 			{
-				Case c = new Case(ontology, ax.getAxiomWithoutAnnotations());
-				caselist.add(c);
+				//Case c = new Case(ontology, ax.getAxiomWithoutAnnotations());
+				//caselist.add(c);
 			}
 		}
 		return caselist;
@@ -67,48 +66,146 @@ public class ListManager {
 	
 	public List<Case> constructCaseListFromCSV(File csv) throws IOException{
 		List<Case> caseList = new ArrayList<Case>();
-		ArrayList<String> csvData = new ArrayList<String>();
-		BufferedReader reader = new BufferedReader(new FileReader(csv));
-		//Read top of document but don't input
-		reader.readLine();
-		while (true) {
-		    String line = reader.readLine();
-		    if (line == null) {
-			break;
-		    }
-		    csvData.add(line);
-		}
-		reader.close();
+		List<Map<String,String>> csvData = CSVUtilities.getRecords(csv);
 		OWLOntologyManager ontologyManager = OWLManager.createOWLOntologyManager();
 		OWLDataFactory df = ontologyManager.getOWLDataFactory();
-		Set<Case> caseSet = new HashSet<Case>();
-		for(String data:csvData)
+		Set<String> values = new HashSet<>();
+		Set<String> values2 = new HashSet<>();
+		Map<String,Subcase> valuesMap = new HashMap<String,Subcase>();
+		for(Map<String,String> data:csvData)
 		{
-			int pos1 = this.ordinalIndexOf(data,",",5) + 1;
-			int pos2 = this.ordinalIndexOf(data, ",", 6);
-			String ontology = data.substring(pos1, pos2);
-			int pos3 = this.ordinalIndexOf(data,",",14) + 1;
-			int pos4 = this.ordinalIndexOf(data,",",15);
-			String subclass = data.substring(pos3,pos4);
-			int pos5 = this.ordinalIndexOf(data,",",10) + 1;
-			int pos6 = this.ordinalIndexOf(data,",",11);
-			String supclass = data.substring(pos5,pos6);
-			OWLAxiom ax = df.getOWLSubClassOfAxiom(
-					df.getOWLClass(IRI.create(subclass)), 
-					df.getOWLClass(IRI.create(supclass))
-					);
-			Case c = new Case(ontology,ax);
-			caseSet.add(c);
+			String ontology = data.get("ontology");			
+			String subClass = data.get("subclass");
+			String supClass = data.get("superclass");
+			values.add(ontology+","+subClass+","+supClass);
+			String jname = data.get("justname");
+			values2.add(ontology+","+subClass+","+supClass+","+jname);
 		}
-		caseList.addAll(caseSet);
-		return caseList;
-	}
+		
+		for(String value:values2)
+		{
+			String[] s = value.split(",");
+			String subClass = s[1];
+			String supClass = s[2];
+			String just = s[3];
+			OWLAxiom entailment = df.getOWLSubClassOfAxiom(df.getOWLClass(IRI.create(subClass)), 
+					  df.getOWLClass(IRI.create(supClass)));
+			Set<ReasonerVerdict> reasonerVerdicts = new HashSet<>();
+			Set<String> evidence = new HashSet<>();
+			Set<String> metadata = new HashSet<>();
+			String genReasoner = "";
+			for(Map<String,String> data:csvData)
+			{
+				if(data.get("ontology").equals(s[0]) && 
+				   data.get("subclass").equals(subClass) &&
+				   data.get("superclass").equals(supClass) &&
+				   data.get("justname").equals(just))
+				{
+					genReasoner = data.get("reasoner_just");
+					String reasoner = data.get("reasoner");
+					if(data.get("entailed_by_j").equals("1"))
+					{
+						reasonerVerdicts.add(new ReasonerVerdict(true,reasoner));
+					}
+					else if(data.get("entailed_by_j").equals("0"))
+					{
+						reasonerVerdicts.add(new ReasonerVerdict(false,reasoner));
+
+					}
+					else
+					{
+						reasonerVerdicts.add(new ReasonerVerdict(null,reasoner));
+					}
+					
+					if(!data.get("dts").isEmpty())
+					{
+						String[] dt = data.get("dts").split(" ");
+						for(String datatype:dt)
+						{
+							metadata.add(datatype);
+						}
+					}
+					
+					if(data.get("category").equals("odd"))
+					{
+						evidence.add("Verdict: odd");
+					}
+					
+					if(data.get("just_size").equals("1"))
+					{
+						evidence.add("Axiom Swallowing");
+					}					
+				}
+				
+				valuesMap.put(just, new Subcase(s[0],entailment,just,genReasoner, new MetaData(metadata),new Evidence(evidence),reasonerVerdicts));
+			}
+		}
+		
+		for(String value:values)
+		{
+			String[] s = value.split(",");
+			String subClass = s[1];
+			String supClass = s[2];
+			OWLAxiom entailment = df.getOWLSubClassOfAxiom(df.getOWLClass(IRI.create(subClass)), 
+								  df.getOWLClass(IRI.create(supClass)));
+			Boolean axsw = true;
+			Set<String> evidence = new HashSet<>();
+			Set<ReasonerVerdict> reasonerVerdicts = new HashSet<>();
+			Set<String> metadata = new HashSet<>();
+			Set<String> justNames = new HashSet<>();
+			for(Map<String,String> data:csvData)
+			{
+				if(data.get("ontology").equals(s[0]) && 
+				   data.get("subclass").equals(subClass) &&
+				   data.get("superclass").equals(supClass))
+				{
+					if(data.get("just_size").equals("1"))
+					{
+						axsw = true;
+						
+					}
+					if(data.get("category").equals("odd"))
+					{
+						evidence.add("Verdict: odd");
+					}
+					String reasoner = data.get("reasoner");
 	
-	private static int ordinalIndexOf(String str, String substr, int n) {
-	    int pos = str.indexOf(substr);
-	    while (--n > 0 && pos != -1)
-	        pos = str.indexOf(substr, pos + 1);
-	    return pos;
+					if(data.get("in_cl_o").equals("1"))
+					{
+						reasonerVerdicts.add(new ReasonerVerdict(true,reasoner));
+					}
+					else if(data.get("in_cl_o").equals("0"))
+					{
+						reasonerVerdicts.add(new ReasonerVerdict(false,reasoner));
+					}
+					else
+					{
+						reasonerVerdicts.add(new ReasonerVerdict(null,reasoner));
+					}
+					justNames.add(data.get("justname"));
+				}
+			}
+			Set<Subcase> subcaseSet = new HashSet<>();
+			for(String j:justNames)
+			{
+				subcaseSet.add(valuesMap.get(j));
+				if(valuesMap.get(j).getEvidence().getMetaData().contains("Reasoner Consensus"))
+				{
+					evidence.add("Reasoner Consensus");
+				}
+			}
+			Case c = new Case(s[0],
+							  entailment, 
+							  subcaseSet, 
+							  new MetaData(new HashSet<String>()), 
+							  new Evidence(evidence), 
+							  reasonerVerdicts);
+			caseList.add(c);
+		}
+		//OWLAxiom entailment = df.getOWLSubClassOfAxiom(df.getOWLClass(IRI.create(subClass)), 
+				// df.getOWLClass(IRI.create(supClass)));
+		
+		return caseList;
 	}
 	
 	public void generateCSVOfCaseList(List<Case> list, File csv) throws IOException{
@@ -120,7 +217,7 @@ public class ListManager {
 		}
 		pw.close();
 	}
-	
+	/**
 	public List<Subcase> extractSubcasesFromCaseData(ArrayList<CaseData> list){
 		List<Subcase> subcases = new ArrayList<Subcase>();
 		for(CaseData cd:list)
@@ -129,7 +226,7 @@ public class ListManager {
 		}
 		return subcases;
 	}
-	
+	/**
 	public ArrayList<CaseData> constructCaseDataFromCSV(List<Case> list, File csv) throws IOException{
 		ArrayList<CaseData> casedata = new ArrayList<CaseData>();
 		Map<Case,ArrayList<String>> md = this.getCaseListMetaData(list, csv);
@@ -223,11 +320,13 @@ public class ListManager {
 				}
 				subVerdicts.put(s2, reasonerVerdicts);
 			}
-			**/			
+			**/	
+	/**
 		}
 		return casedata;
 	}
-	
+	**/
+	/**
 	public ArrayList<SubcaseData> constructSubCaseDataFromCSV(List<Subcase> list, File csv) throws IOException{
 		ArrayList<SubcaseData> subcaseData = new ArrayList<SubcaseData>();
 		Map<Subcase,ArrayList<String>> md = this.getSubcaseListMetaData(list, csv);

@@ -20,14 +20,16 @@ import org.semanticweb.owlapi.model.OWLOntologyStorageException;
 import org.xml.sax.SAXException;
 
 import main.java.owl.cs.man.ac.uk.cases.lists.Case;
-import main.java.owl.cs.man.ac.uk.cases.lists.CaseData;
+
 import main.java.owl.cs.man.ac.uk.cases.lists.CaseList;
 import main.java.owl.cs.man.ac.uk.cases.lists.ReasonerVerdict;
 import main.java.owl.cs.man.ac.uk.cases.lists.Subcase;
-import main.java.owl.cs.man.ac.uk.cases.lists.SubcaseData;
+
 import main.java.owl.cs.man.ac.uk.cases.managers.ListManager;
 import main.java.owl.cs.man.ac.uk.cases.writer.OWLXMLWriter;
 import main.java.owl.cs.man.ac.uk.cases.writer.XMLCaseWriter;
+
+import owl.cs.man.ac.uk.experiment.csv.*;
 
 public final class Test {
 
@@ -40,6 +42,32 @@ public final class Test {
 		File dis = new File(args[0]);
 		File csv = new File(args[1]);
 		String dir = args[2];
+		File justDir = new File(args[3]);
+		/**
+		ListManager lm = new ListManager();
+		List<Case> caseList = lm.constructCaseListFromCSV(csv);
+		XMLCaseWriter xcw = new XMLCaseWriter();
+		File xml = new File(dir + "/cases.xml");
+		xml.canWrite();
+		xcw.createXMLCaseFileFromList(csv, xml, caseList, "iswc-2014");
+		/**
+		int i = 0;
+		List<Map<String,String>> records = CSVUtilities.getRecords(csv);
+		for(Map<String,String> r:records)
+		{
+			
+			System.out.println("Map " + i);
+			for(String k:r.keySet())
+			{
+				System.out.println(k);
+				System.out.println(r.get(k));
+				System.out.println("");
+			}
+			System.out.println("");
+			i++;
+		}
+		**/
+		
 		ListManager lm = new ListManager();
 		List<Case> caseList = lm.constructCaseListFromCSV(csv);
 		Map<String,List<Case>> splitMap = new HashMap<String,List<Case>>();
@@ -69,7 +97,7 @@ public final class Test {
 			XMLCaseWriter xcw = new XMLCaseWriter();
 			File xml = new File(dir + key + ".cases.xml");
 			xml.canWrite();
-			xcw.createXMLCaseFileFromList(csv, xml, clist, "iswc-2014", key);
+			xcw.createXMLCaseFileFromList(csv, xml, justDir, clist, "iswc-2014");
 			
 		}
 		//List<Case> list = lm.constructCaseListFromDisFile(dis);

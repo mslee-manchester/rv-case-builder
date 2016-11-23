@@ -33,11 +33,9 @@ import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
 import main.java.owl.cs.man.ac.uk.cases.lists.Case;
-import main.java.owl.cs.man.ac.uk.cases.lists.CaseData;
 import main.java.owl.cs.man.ac.uk.cases.lists.CaseList;
 import main.java.owl.cs.man.ac.uk.cases.lists.ReasonerVerdict;
 import main.java.owl.cs.man.ac.uk.cases.lists.Subcase;
-import main.java.owl.cs.man.ac.uk.cases.lists.SubcaseData;
 import main.java.owl.cs.man.ac.uk.cases.managers.ListManager;
 
 public class XMLCaseWriter {
@@ -53,7 +51,7 @@ public class XMLCaseWriter {
 		transformer = transformerFactory.newTransformer();
 	}
 	
-	public void createXMLCaseFileFromList(File csv, File xmlfile, List<Case> list, String experiment, String ontology) throws OWLOntologyCreationException, IOException, ParserConfigurationException, OWLOntologyStorageException, SAXException, TransformerException{
+	public void createXMLCaseFileFromList(File csv, File xmlfile, File dir, List<Case> list, String experiment) throws OWLOntologyCreationException, IOException, ParserConfigurationException, OWLOntologyStorageException, SAXException, TransformerException{
 		//check CSV non-empty
 		if(csv.length() == 0) {
 				throw new RuntimeException("Empty CSV file error");
@@ -64,9 +62,9 @@ public class XMLCaseWriter {
 		doc.appendChild(rootElement);
 		//Constructing casedata dependent on list
 		ListManager lm = new ListManager();
-		ArrayList<CaseData> cld = lm.constructCaseDataFromCSV(list, csv);
-		List<Subcase> scl = lm.extractSubcasesFromCaseData(cld);
-		ArrayList<SubcaseData> scd = lm.constructSubCaseDataFromCSV(scl, csv);
+		//ArrayList<CaseData> cld = lm.constructCaseDataFromCSV(list, csv);
+		//List<Subcase> scl = lm.extractSubcasesFromCaseData(cld);
+		//ArrayList<SubcaseData> scd = lm.constructSubCaseDataFromCSV(scl, csv);
 		//constructing info for relevant attributes. Because this is grouped by ontology, we can get it once!
 		BasicFileAttributes attr = Files.readAttributes(csv.toPath(), BasicFileAttributes.class);
 		String date = attr.lastModifiedTime().toString().substring(0, attr.lastModifiedTime().toString().indexOf("T"));
@@ -75,19 +73,28 @@ public class XMLCaseWriter {
 		Attr xsi = doc.createAttribute("xsi:noNamespaceSchemaLocation");
 		//Attr owl = doc.createAttribute("xmlns:owl");
 		Attr grouping = doc.createAttribute("grouping");
-		//rootElement.setAttributeNode(xsi);
+		rootElement.setAttributeNode(xsi);
 		rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
 		rootElement.setAttributeNode(xsd);
-		//rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:owl", "http://www.w3.org/2002/07/owl#");
+		rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:owl", "http://www.w3.org/2002/07/owl#");
 		rootElement.setAttributeNode(grouping);
 		xsd.setValue("http://www.w3.org/2001/XMLSchema-instance");
 		xsi.setValue("case.xsd");
 				
 		grouping.setValue("ontology");
 		OWLXMLWriter oxwriter = new OWLXMLWriter();
-		Set<Element> subcaseSet = new HashSet<Element>();
-		for(CaseData cd:cld)
+		for(Case c:list)
 		{
+			System.out.println(c.getOntology());
+			System.out.println(c.getEntailment());
+			System.out.println(c.getEvidence().getMetaData());
+			System.out.println(c.getMetaData().getMetaData());
+			for(ReasonerVerdict rv:c.getReasonerVerdicts())
+			{
+				System.out.println(rv.getReasoner());
+				System.out.println(rv.getValue());
+			}
+			
 			Element xmlcase = doc.createElement("case");
 			rootElement.appendChild(xmlcase);
 			Attr generationDate = doc.createAttribute("generation-date");
@@ -98,10 +105,10 @@ public class XMLCaseWriter {
 			experimentAttr.setValue(experiment);
 			Attr ontologyAttr = doc.createAttribute("ontology");
 			xmlcase.setAttributeNode(ontologyAttr);
-			ontologyAttr.setValue(ontology);
+			ontologyAttr.setValue(c.getOntology());
 			Element entailment = doc.createElement("entailment");
 			xmlcase.appendChild(entailment);
-			Element n = (Element) oxwriter.getEntailmentAsDocElement((OWLAxiom) cd.getCase().getEntailment(), xmlfile.getParent());
+			Element n = (Element) oxwriter.getEntailmentAsDocElement((OWLAxiom) c.getEntailment(), xmlfile.getParent());
 			Element elementWithNS = oxwriter.addOWLNameSpace(n, doc);
 			doc.adoptNode(elementWithNS);
 			entailment.appendChild(elementWithNS);
@@ -114,7 +121,7 @@ public class XMLCaseWriter {
 			reasonerVerdict.appendChild(reasonerDissent);
 			reasonerVerdict.appendChild(reasonerFailure);
 			
-			for(ReasonerVerdict rv:cd.getReasonerVerdicts())
+			for(ReasonerVerdict rv:c.getReasonerVerdicts())
 			{
 				Element reasoner = doc.createElement("reasoner");
 				Attr rname = doc.createAttribute("name");
@@ -140,7 +147,7 @@ public class XMLCaseWriter {
 			xmlcase.appendChild(decision);
 			Element evidence = doc.createElement("evidence");
 			decision.appendChild(evidence);
-			for(String e:cd.getEvidence().getMetaData())
+			for(String e:c.getEvidence().getMetaData())
 			{
 				if(e.equals("Verdict: odd"))
 				{
@@ -156,106 +163,119 @@ public class XMLCaseWriter {
 			}
 			Element subcases = doc.createElement("subcases");
 			xmlcase.appendChild(subcases);
-			for(Subcase sc:cd.getSubcases())
+			Boolean cons = true;
+			for(Subcase sc:c.getSubcases())
 			{
+				System.out.println(sc.getJustification());
+				System.out.println(sc.getEvidence().getMetaData());
+				System.out.println(sc.getMetaData().getMetaData());
+				for(ReasonerVerdict rv:sc.getReasonerVerdicts())
+				{
+					System.out.println(rv.getReasoner());
+					System.out.println(rv.getValue());
+				}
 				Element subcase = doc.createElement("subcase");
 				subcases.appendChild(subcase);
 				Attr scname = doc.createAttribute("name");
 				subcase.setAttributeNode(scname);
 				scname.setValue(sc.getJustification());
-				subcaseSet.add(subcase);
-			}
-		}
-		
-		for(SubcaseData scdat:scd)
-		{
-			for(Element e:subcaseSet)
-			{
-				if(e.getAttributeNode("name").getValue().equals(scdat.getCase().getJustification()))
+				Element justification = oxwriter.getJustificationElement(new File(dir + "/" + sc.getJustification()));
+				for(int i = 0;i < justification.getChildNodes().getLength();i++)
 				{
-					Element reasonerVerdict = doc.createElement("reasoner-verdict");
-					e.appendChild(reasonerVerdict);
-					Element reasonerAssent = doc.createElement("reasoner-assent");
-					Element reasonerDissent = doc.createElement("reasoner-dissent");
-					Element reasonerFailure = doc.createElement("reasoner-failure");
-					reasonerVerdict.appendChild(reasonerAssent);
-					reasonerVerdict.appendChild(reasonerDissent);
-					reasonerVerdict.appendChild(reasonerFailure);
-					Boolean consensus = true;
-					for(ReasonerVerdict rv:scdat.getReasonerVerdicts())
+					Element child = (Element) justification.getChildNodes().item(i);
+					oxwriter.addOWLNameSpace(child, doc);
+				}
+				doc.adoptNode(justification);
+				subcase.appendChild(justification);
+				Element SCreasonerVerdict = doc.createElement("reasoner-verdict");
+				subcase.appendChild(SCreasonerVerdict);
+				Element SCreasonerAssent = doc.createElement("reasoner-assent");
+				Element SCreasonerDissent = doc.createElement("reasoner-dissent");
+				Element SCreasonerFailure = doc.createElement("reasoner-failure");
+				SCreasonerVerdict.appendChild(SCreasonerAssent);
+				SCreasonerVerdict.appendChild(SCreasonerDissent);
+				SCreasonerVerdict.appendChild(SCreasonerFailure);
+				Boolean consensus = true;
+				for(ReasonerVerdict rv:sc.getReasonerVerdicts())
+				{
+					Element reasoner = doc.createElement("reasoner");
+					Attr rname = doc.createAttribute("name");
+					rname.setValue(rv.getReasoner());
+					reasoner.setAttributeNode(rname);
+					if(rv.getValue())
 					{
-						Element reasoner = doc.createElement("reasoner");
-						Attr rname = doc.createAttribute("name");
-						rname.setValue(rv.getReasoner());
-						reasoner.setAttributeNode(rname);
-						if(rv.getValue())
-						{
-							reasonerAssent.appendChild(reasoner);
-						}
-						else if(!rv.getValue())
-						{
-							reasonerDissent.appendChild(reasoner);
-							consensus = false;
-						}
-						else
-						{
-							reasonerFailure.appendChild(reasoner);
-							consensus = false;
-						}
+						SCreasonerAssent.appendChild(reasoner);
 					}
-					Element genReasoner = doc.createElement("generating-reasoner");
-					Element r = doc.createElement("reasoner");
-					Attr genName = doc.createAttribute("name");
-					r.setAttributeNode(genName);
-					genName.setValue(scdat.getGeneratingReasoner());
-					genReasoner.appendChild(r);
-					e.appendChild(genReasoner);
-					Element decision = doc.createElement("decision");
-					Attr dec = doc.createAttribute("value");
-					decision.setAttributeNode(dec);
-					dec.setValue("na");
-					e.appendChild(decision);
-					Element evidence = doc.createElement("evidence");
-					decision.appendChild(evidence);
-					if(consensus)
+					else if(!rv.getValue())
 					{
-						Element reasonerConsensus = doc.createElement("reasoner-consensus");
-						evidence.appendChild(reasonerConsensus);
-						/**
-						for(int i = 0;i < e.getParentNode().getChildNodes().getLength();i++)
-						{
-							if(e.getParentNode().getChildNodes().item(i).getLocalName().equals("evidence"))
-							{
-								Element evidenceCase = doc.createElement("reasoner-consensus");
-								e.getParentNode().getChildNodes().item(i).appendChild(evidenceCase);
-							
-							}
-						}
-						**/
+						SCreasonerDissent.appendChild(reasoner);
+						consensus = false;
+						cons = false;
 					}
-					for(String s:scdat.getEvidence().getMetaData())
+					else
 					{
-						if(s.equals("Axiom Swallowing"))
-						{
-							Element axswal = doc.createElement("self-just");
-							evidence.appendChild(axswal);
-							dec.setValue("true");
-						}
+						SCreasonerFailure.appendChild(reasoner);
+						consensus = false;
+						cons = false;
 					}
-					Element subcaseMetadata = doc.createElement("subcase-metadata");
-					e.appendChild(subcaseMetadata);
-					for(String s:scdat.getMetaData().getMetaData())
+				}
+				Element genReasoner = doc.createElement("generating-reasoner");
+				Element r = doc.createElement("reasoner");
+				Attr genName = doc.createAttribute("name");
+				r.setAttributeNode(genName);
+				genName.setValue(sc.getGeneratingReasoner());
+				genReasoner.appendChild(r);
+				subcase.appendChild(genReasoner);
+				Element SCdecision = doc.createElement("decision");
+				Attr SCdec = doc.createAttribute("value");
+				SCdecision.setAttributeNode(SCdec);
+				SCdec.setValue("na");
+				subcase.appendChild(SCdecision);
+				Element SCevidence = doc.createElement("evidence");
+				SCdecision.appendChild(SCevidence);
+				if(consensus)
+				{
+					Element SCreasonerConsensus = doc.createElement("reasoner-consensus");
+					SCevidence.appendChild(SCreasonerConsensus);
+				}
+				for(String s:sc.getEvidence().getMetaData())
+				{
+					if(s.equals("Axiom Swallowing"))
 					{
-						Element datatype = doc.createElement("datatype");
-						Attr type = doc.createAttribute("type");
-						datatype.setAttributeNode(type);
-						type.setValue(s);
-						e.appendChild(datatype);
+						System.out.println("axiomw was swallowed");
+						Element axswal = doc.createElement("self-just");
+						SCevidence.appendChild(axswal);
+						dec.setValue("true");
+						SCdec.setValue("true");
 					}
-					
+					else if(s.equals("Verdict: odd"))
+					{
+						System.out.println("verdict was odd");
+						Element SCodd = doc.createElement("odd");
+						SCevidence.appendChild(SCodd);
+					}
+				}
+				Element subcaseMetadata = doc.createElement("subcase-metadata");
+				subcase.appendChild(subcaseMetadata);
+				for(String s:sc.getMetaData().getMetaData())
+				{
+					Element datatype = doc.createElement("datatype");
+					Attr type = doc.createAttribute("type");
+					datatype.setAttributeNode(type);
+					type.setValue(s);
+					subcaseMetadata.appendChild(datatype);
 				}
 			}
-		}
+			if(cons)
+			{
+				Element reasonerConsensus = doc.createElement("reasoner-consensus");
+				evidence.appendChild(reasonerConsensus);
+			}
+			System.out.println("");
+		}				
+	
+	
+		
 		
 		//writing content to xml file
 		DOMSource source = new DOMSource(doc);

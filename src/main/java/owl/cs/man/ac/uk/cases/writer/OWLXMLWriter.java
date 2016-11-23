@@ -29,8 +29,6 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import main.java.owl.cs.man.ac.uk.cases.lists.CaseData;
-
 public class OWLXMLWriter {
 	private DocumentBuilderFactory docFactory;
 	private DocumentBuilder docBuilder;
@@ -38,11 +36,40 @@ public class OWLXMLWriter {
 	
 	
 	public OWLXMLWriter() throws ParserConfigurationException, TransformerConfigurationException {
-		//Produces the relevant nodes for the document being constructed. To be distingushed from the OWL API OWLXMLWriter
+		//Produces the relevant nodes for the document being constructed. To be distinguished from the OWL API OWLXMLWriter
 		this.docFactory = DocumentBuilderFactory.newInstance();
 		this.docBuilder = docFactory.newDocumentBuilder();
 		TransformerFactory transformerFactory = TransformerFactory.newInstance();
 		this.transformer = transformerFactory.newTransformer();
+	}
+	
+	public Set<OWLAxiom> loadJustificationFromFile(File just) throws OWLOntologyCreationException{
+		Set<OWLAxiom> set = new HashSet<>();
+		OWLOntologyManager ontoman = OWLManager.createOWLOntologyManager();
+		OWLOntology exp = ontoman.loadOntologyFromOntologyDocument(just);
+		for(OWLAxiom ax:exp.getAxioms())
+		{
+			if(ax.isLogicalAxiom())
+			{
+				set.add(ax.getAxiomWithoutAnnotations());
+			}
+		}
+		ontoman.removeOntology(exp);
+		return set;
+	}
+	
+	public Element getJustificationElement(File just) throws OWLOntologyCreationException, OWLOntologyStorageException, SAXException, IOException{
+		Set<OWLAxiom> justSet = this.loadJustificationFromFile(just);
+		Document doc = docBuilder.newDocument();
+		Element justification = doc.createElement("justification");
+		for(OWLAxiom ax:justSet)
+		{
+			Element axiom = (Element) this.getEntailmentAsDocElement(ax, just.getParent());
+			Element axiomWithNS = this.addOWLNameSpace(axiom, doc);
+			doc.adoptNode(axiomWithNS);
+			justification.appendChild(axiomWithNS);
+		}
+		return justification;
 	}
 	
 	public Node getEntailmentAsDocElement(OWLAxiom ax, String temp) throws OWLOntologyCreationException, OWLOntologyStorageException, SAXException, IOException{
