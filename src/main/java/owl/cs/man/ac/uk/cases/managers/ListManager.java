@@ -64,6 +64,40 @@ public class ListManager {
 		return caselist;
 	}
 	
+	public List<List<String>> getEquivalenceClassMemberList(File csv){
+		List<List<String>> equivalenceClassMemberList = new ArrayList<>();
+		List<Map<String,String>> csvData = CSVUtilities.getRecords(csv);
+		for(Map<String,String> data:csvData)
+		{
+			String[] line = data.get("members").split(";");
+			List<String> memberList = new ArrayList<String>();
+			for(String member:line)
+			{
+				memberList.add(member.substring(1));
+			}
+			equivalenceClassMemberList.add(memberList);
+		}
+		return equivalenceClassMemberList;
+		}
+		
+	public Map<String,List<String>> getIDMapForEQClasses(File csv){
+		Map<String,List<String>> equivalenceClassMemberList = new HashMap<String,List<String>>();
+		List<Map<String,String>> csvData = CSVUtilities.getRecords(csv);
+		int id = 1;
+		for(Map<String,String> data:csvData)
+		{
+			String[] line = data.get("members").split(";");
+			List<String> memberList = new ArrayList<String>();
+			for(String member:line)
+			{
+				memberList.add(member.substring(1));
+			}
+			equivalenceClassMemberList.put("EC" + id, memberList);
+			id++;
+		}
+		return equivalenceClassMemberList;
+	}
+	
 	public List<Case> constructCaseListFromCSV(File csv) throws IOException{
 		List<Case> caseList = new ArrayList<Case>();
 		List<Map<String,String>> csvData = CSVUtilities.getRecords(csv);

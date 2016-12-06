@@ -9,8 +9,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -30,6 +32,7 @@ import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import main.java.owl.cs.man.ac.uk.cases.lists.Case;
@@ -51,7 +54,49 @@ public class XMLCaseWriter {
 		transformer = transformerFactory.newTransformer();
 	}
 	
-	public void createXMLCaseFileFromList(File csv, File xmlfile, File dir, List<Case> list, String experiment) throws OWLOntologyCreationException, IOException, ParserConfigurationException, OWLOntologyStorageException, SAXException, TransformerException{
+	//Takes a CSV and finds all relevant ontologies and their respective cases and produces case files for each ontology.
+	public void createOntologySortedXMLCaseFilesFromList(File csv, File saveDir, File justDir, Map<String,List<String>> equivalenceClasses, List<Case> list, String experiment){
+		//Spliting cases into relevant ontologies
+		Map<String,List<Case>> splitMap = new HashMap<String,List<Case>>();
+		for(Case c:list)
+		{
+			if(!splitMap.keySet().contains(c.getOntology()))
+			{
+				List<Case> newList = new ArrayList<Case>();
+				newList.add(c);
+				splitMap.put(c.getOntology().toString(), newList);
+				
+			}
+			else
+			{
+				List<Case> newList = splitMap.get(c.getOntology().toString());
+				newList.add(c);
+				splitMap.replace(c.getOntology().toString(), newList);
+				
+			}
+		}
+		
+
+		for(String key:splitMap.keySet())
+		{
+			List<Case> clist = splitMap.get(key);
+			File xml = new File(saveDir + "/"+  key + ".cases.xml");
+			xml.canWrite();
+			try {
+				this.createXMLCaseFileFromList(csv, xml, justDir, equivalenceClasses, clist, "iswc-2014");
+			} catch (OWLOntologyCreationException | OWLOntologyStorageException | IOException
+					| ParserConfigurationException | SAXException | TransformerException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}		
+		
+		
+	}
+	
+	
+	
+	public void createXMLCaseFileFromList(File csv, File xmlfile, File dir, Map<String,List<String>> equivalenceClasses, List<Case> list, String experiment) throws OWLOntologyCreationException, IOException, ParserConfigurationException, OWLOntologyStorageException, SAXException, TransformerException{
 		//check CSV non-empty
 		if(csv.length() == 0) {
 				throw new RuntimeException("Empty CSV file error");
@@ -80,7 +125,6 @@ public class XMLCaseWriter {
 		rootElement.setAttributeNode(grouping);
 		xsd.setValue("http://www.w3.org/2001/XMLSchema-instance");
 		xsi.setValue("case.xsd");
-				
 		grouping.setValue("ontology");
 		OWLXMLWriter oxwriter = new OWLXMLWriter();
 		for(Case c:list)
@@ -274,8 +318,24 @@ public class XMLCaseWriter {
 			System.out.println("");
 		}				
 	
-	
-		
+		NodeList justifications = doc.getElementsByTagName("subcase");
+
+		for(String id:equivalenceClasses.keySet())
+		{
+			for(String member:equivalenceClasses.get(id))
+			{
+				for(int i = 0;i < justifications.getLength();i++)
+				{
+					Element justification = (Element) justifications.item(i);
+					if(member.equals(justification.getAttributes().getNamedItem("name").getNodeValue()))
+					{
+						Attr equivalenceClass = doc.createAttribute("equivalence-class");
+						justification.setAttributeNode(equivalenceClass);
+						equivalenceClass.setValue(id);
+					}
+				}
+			}
+		}
 		
 		//writing content to xml file
 		DOMSource source = new DOMSource(doc);

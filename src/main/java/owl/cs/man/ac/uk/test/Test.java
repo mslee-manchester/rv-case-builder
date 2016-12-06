@@ -43,6 +43,7 @@ public final class Test {
 		File csv = new File(args[1]);
 		String dir = args[2];
 		File justDir = new File(args[3]);
+		File equvCSV = new File(args[4]);
 		/**
 		ListManager lm = new ListManager();
 		List<Case> caseList = lm.constructCaseListFromCSV(csv);
@@ -71,7 +72,10 @@ public final class Test {
 		ListManager lm = new ListManager();
 		List<Case> caseList = lm.constructCaseListFromCSV(csv);
 		Map<String,List<Case>> splitMap = new HashMap<String,List<Case>>();
-		
+		Map<String,List<String>> equvMap = lm.getIDMapForEQClasses(equvCSV);
+		XMLCaseWriter xcw = new XMLCaseWriter();
+		xcw.createOntologySortedXMLCaseFilesFromList(csv, new File(dir), justDir, equvMap, caseList, "iswc-2014");
+		/**
 		for(Case c:caseList)
 		{
 			if(!splitMap.keySet().contains(c.getOntology()))
@@ -97,7 +101,7 @@ public final class Test {
 			XMLCaseWriter xcw = new XMLCaseWriter();
 			File xml = new File(dir + key + ".cases.xml");
 			xml.canWrite();
-			xcw.createXMLCaseFileFromList(csv, xml, justDir, clist, "iswc-2014");
+			xcw.createXMLCaseFileFromList(csv, xml, justDir, equvCSV, clist, "iswc-2014");
 			
 		}
 		//List<Case> list = lm.constructCaseListFromDisFile(dis);
